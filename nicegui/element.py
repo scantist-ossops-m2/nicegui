@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import ast
 import inspect
 import re
+import shlex
 from copy import copy, deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Iterator, List, Optional, Sequence, Union, overload
@@ -21,32 +21,6 @@ from .version import __version__
 
 if TYPE_CHECKING:
     from .client import Client
-
-PROPS_PATTERN = re.compile(r'''
-# Match a key-value pair optionally followed by whitespace or end of string
-([:\w\-]+)          # Capture group 1: Key
-(?:                 # Optional non-capturing group for value
-    =               # Match the equal sign
-    (?:             # Non-capturing group for value options
-        (           # Capture group 2: Value enclosed in double quotes
-            "       # Match  double quote
-            [^"\\]* # Match any character except quotes or backslashes zero or more times
-            (?:\\.[^"\\]*)*  # Match any escaped character followed by any character except quotes or backslashes zero or more times
-            "       # Match the closing quote
-        )
-        |
-        (           # Capture group 3: Value enclosed in single quotes
-            '       # Match a single quote
-            [^'\\]* # Match any character except quotes or backslashes zero or more times
-            (?:\\.[^'\\]*)*  # Match any escaped character followed by any character except quotes or backslashes zero or more times
-            '       # Match the closing quote
-        )
-        |           # Or
-        ([\w\-.,%:\/]+)  # Capture group 4: Value without quotes
-    )
-)?                  # End of optional non-capturing group for value
-(?:$|\s)            # Match end of string or whitespace
-''', re.VERBOSE)
 
 # https://www.w3.org/TR/xml/#sec-common-syn
 TAG_START_CHAR = r':|[A-Z]|_|[a-z]|[\u00C0-\u00D6]|[\u00D8-\u00F6]|[\u00F8-\u02FF]|[\u0370-\u037D]|[\u037F-\u1FFF]|[\u200C-\u200D]|[\u2070-\u218F]|[\u2C00-\u2FEF]|[\u3001-\uD7FF]|[\uF900-\uFDCF]|[\uFDF0-\uFFFD]|[\U00010000-\U000EFFFF]'
@@ -327,16 +301,10 @@ class Element(Visibility):
 
     @staticmethod
     def _parse_props(text: Optional[str]) -> Dict[str, Any]:
-        dictionary = {}
-        for match in PROPS_PATTERN.finditer(text or ''):
-            key = match.group(1)
-            value = match.group(2) or match.group(3) or match.group(4)
-            if value is None:
-                dictionary[key] = True
-            else:
-                if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
-                    value = ast.literal_eval(value)
-                dictionary[key] = value
+        dictionary: dict[str, Any] = {}
+        for token in shlex.split(text or ''):
+            words = token.split('=', 1)
+            dictionary[words[0]] = True if len(words) == 1 else words[1]
         return dictionary
 
     def props(self,

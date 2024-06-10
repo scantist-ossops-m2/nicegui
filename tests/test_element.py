@@ -55,13 +55,13 @@ def test_props_parsing():
     assert ui.element._parse_props('empty=""') == {'empty': ''}
     assert ui.element._parse_props("empty=''") == {'empty': ''}
 
-    assert ui.element._parse_props("""hint='Your \\"given\\" name'""") == {'hint': 'Your "given" name'}
+    assert ui.element._parse_props("""hint='Your \"given\" name'""") == {'hint': 'Your "given" name'}
     assert ui.element._parse_props("one two=1 three='abc def'") == {'one': True, 'two': '1', 'three': 'abc def'}
     assert ui.element._parse_props('''three='abc def' four="hhh jjj"''') == {'three': 'abc def', 'four': 'hhh jjj', }
     assert ui.element._parse_props('''foo="quote'quote"''') == {'foo': "quote'quote"}
     assert ui.element._parse_props("""foo='quote"quote'""") == {'foo': 'quote"quote'}
     assert ui.element._parse_props("""foo="single '" bar='double "'""") == {'foo': "single '", 'bar': 'double "'}
-    assert ui.element._parse_props("""foo="single '" bar='double \\"'""") == {'foo': "single '", 'bar': 'double "'}
+    assert ui.element._parse_props("""foo="single '" bar='double \"'""") == {'foo': "single '", 'bar': 'double "'}
     assert ui.element._parse_props("input-style='{ color: #ff0000 }'") == {'input-style': '{ color: #ff0000 }'}
     assert ui.element._parse_props("""input-style='{ myquote: "quote" }'""") == {'input-style': '{ myquote: "quote" }'}
 
