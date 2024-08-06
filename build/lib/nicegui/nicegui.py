@@ -30,24 +30,10 @@ async def _lifespan(_: App):
     yield
     await _shutdown()
 
-
-class SocketIoApp(socketio.ASGIApp):
-    """Custom ASGI app to handle root_path.
-
-    This is a workaround for https://github.com/miguelgrinberg/python-engineio/pull/345
-    """
-
-    async def __call__(self, scope, receive, send):
-        root_path = scope.get('root_path')
-        if root_path and scope['path'].startswith(root_path):
-            scope['path'] = scope['path'][len(root_path):]
-        return await super().__call__(scope, receive, send)
-
-
 core.app = app = App(default_response_class=NiceGUIJSONResponse, lifespan=_lifespan)
 # NOTE we use custom json module which wraps orjson
 core.sio = sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*', json=json)
-sio_app = SocketIoApp(socketio_server=sio, socketio_path='/socket.io')
+sio_app = socketio.ASGIApp(socketio_server=sio, socketio_path='/_nicegui_ws/socket.io')
 app.mount('/_nicegui_ws/', sio_app)
 
 
@@ -96,10 +82,6 @@ def _get_component(key: str) -> FileResponse:
 def _get_resource(key: str, path: str) -> FileResponse:
     if key in resources:
         filepath = resources[key].path / path
-        try:
-            filepath.resolve().relative_to(resources[key].path.resolve())  # NOTE: use is_relative_to() in Python 3.9
-        except ValueError as e:
-            raise HTTPException(status_code=403, detail='forbidden') from e
         if filepath.exists():
             headers = {'Cache-Control': 'public, max-age=3600'}
             media_type, _ = mimetypes.guess_type(filepath)
