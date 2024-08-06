@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi_socketio import SocketManager
 
-from . import air, background_tasks, binding, core, favicon, helpers, json, run, welcome
+from . import air, background_tasks, binding, core, favicon, helpers, json, outbox, run, welcome
 from .app import App
 from .client import Client
 from .dependencies import js_components, libraries, resources
@@ -80,10 +80,6 @@ def _get_component(key: str) -> FileResponse:
 def _get_resource(key: str, path: str) -> FileResponse:
     if key in resources:
         filepath = resources[key].path / path
-        try:
-            filepath.resolve().relative_to(resources[key].path.resolve())  # NOTE: use is_relative_to() in Python 3.9
-        except ValueError as e:
-            raise HTTPException(status_code=403, detail='forbidden') from e
         if filepath.exists():
             headers = {'Cache-Control': 'public, max-age=3600'}
             media_type, _ = mimetypes.guess_type(filepath)
@@ -115,6 +111,7 @@ async def _startup() -> None:
     core.loop = asyncio.get_running_loop()
     app.start()
     background_tasks.create(binding.refresh_loop(), name='refresh bindings')
+    background_tasks.create(outbox.loop(air.instance), name='send outbox')
     background_tasks.create(Client.prune_instances(), name='prune clients')
     background_tasks.create(Slot.prune_stacks(), name='prune slot stacks')
     air.connect()
@@ -124,9 +121,9 @@ async def _shutdown() -> None:
     """Handle the shutdown event."""
     if app.native.main_window:
         app.native.main_window.signal_server_shutdown()
-    air.disconnect()
     app.stop()
     run.tear_down()
+    air.disconnect()
 
 
 @app.exception_handler(404)
